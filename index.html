@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Avatar Frame</title>
+  <title>Avatar Frame Sắc Nét</title>
   <style>
     body {
       display: flex;
@@ -17,7 +17,7 @@
     canvas {
       border: 1px solid #ccc;
       border-radius: 12px;
-      touch-action: none; /* ngăn cuộn khi touch */
+      touch-action: none;
     }
     #controls {
       margin-top: 10px;
@@ -33,17 +33,13 @@
       font-size: 14px;
       cursor: pointer;
     }
-    button:hover {
-      background: #0056b3;
-    }
-    input[type="file"] {
-      margin-bottom: 10px;
-    }
+    button:hover { background: #0056b3; }
+    input[type="file"] { margin-bottom: 10px; }
   </style>
 </head>
 <body>
   <input type="file" id="upload" accept="image/*">
-  <canvas id="canvas" width="400" height="400"></canvas>
+  <canvas id="canvas"></canvas>
   <div id="controls">
     <button id="zoomIn">+</button>
     <button id="zoomOut">-</button>
@@ -58,28 +54,37 @@
     const zoomOut = document.getElementById("zoomOut");
     const download = document.getElementById("download");
 
+    // Thiết lập canvas sắc nét theo devicePixelRatio
+    const displaySize = 400;
+    const ratio = window.devicePixelRatio || 1;
+    canvas.width = displaySize * ratio;
+    canvas.height = displaySize * ratio;
+    canvas.style.width = displaySize + "px";
+    canvas.style.height = displaySize + "px";
+    ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "high";
+
     let img = null;
     let frame = new Image();
     frame.onload = draw;
-    frame.src = "./frame.png"; // chắc chắn cùng thư mục với index.html
+    frame.src = "./frame.png"; // cùng thư mục với index.html
 
-    let userX = 200, userY = 200, scale = 1;
+    let userX = displaySize/2, userY = displaySize/2, scale = 1;
     let isDragging = false, offsetX = 0, offsetY = 0;
     let pinchStart = null;
 
     function draw() {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.clearRect(0, 0, displaySize, displaySize);
       if (img) {
         const w = img.width * scale;
         const h = img.height * scale;
         ctx.drawImage(img, userX - w/2, userY - h/2, w, h);
       }
-      if (frame.complete) {
-        ctx.drawImage(frame, 0, 0, canvas.width, canvas.height);
-      }
+      if (frame.complete) ctx.drawImage(frame, 0, 0, displaySize, displaySize);
     }
 
-    // Upload image
+    // Upload ảnh
     upload.addEventListener("change", e => {
       const file = e.target.files[0];
       if (!file) return;
@@ -99,11 +104,7 @@
       offsetY = e.clientY - userY;
     });
     window.addEventListener("mousemove", e => {
-      if (isDragging) {
-        userX = e.clientX - offsetX;
-        userY = e.clientY - offsetY;
-        draw();
-      }
+      if (isDragging) { userX = e.clientX - offsetX; userY = e.clientY - offsetY; draw(); }
     });
     window.addEventListener("mouseup", () => isDragging = false);
 
@@ -122,7 +123,7 @@
     });
 
     canvas.addEventListener("touchmove", e => {
-      e.preventDefault(); // quan trọng để canvas nhận touch đúng
+      e.preventDefault();
       const rect = canvas.getBoundingClientRect();
       if (e.touches.length === 1 && isDragging) {
         userX = e.touches[0].clientX - rect.left - offsetX;
@@ -137,11 +138,9 @@
           scale = Math.max(0.1, Math.min(5, scale));
           pinchStart = dist;
           draw();
-        } else {
-          pinchStart = dist;
-        }
+        } else pinchStart = dist;
       }
-    }, {passive: false});
+    }, {passive:false});
 
     canvas.addEventListener("touchend", e => {
       if (e.touches.length < 2) pinchStart = null;
