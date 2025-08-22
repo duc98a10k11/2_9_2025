@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tạo Avatar với Khung</title>
+  <style>
+    body { 
+      font-family: sans-serif; 
+      text-align: center; 
+      padding: 20px; 
+      background: #f4f4f9;
+    }
+    canvas { 
+      max-width: 100%; 
+      border: 2px solid #ddd; 
+      margin-top: 20px; 
+    }
+    .btn { 
+      padding: 10px 20px; 
+      border: none; 
+      border-radius: 8px; 
+      cursor: pointer; 
+      background: #4CAF50; 
+      color: white; 
+      font-size: 16px; 
+      margin: 5px;
+    }
+    .btn:hover { background: #45a049; }
+  </style>
+</head>
+<body>
+  <h2>📸 Tạo Avatar với Khung</h2>
+  <input type="file" id="upload" accept="image/*" class="btn">
+  <button class="btn" id="download">Tải Avatar</button>
+  <br>
+  <canvas id="canvas" width="600" height="600"></canvas>
+
+  <script>
+    const upload = document.getElementById('upload');
+    const download = document.getElementById('download');
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+
+    const frame = new Image();
+    frame.src = "frame.png"; // <-- đặt file khung PNG cùng thư mục
+
+    let userImg = new Image();
+
+    upload.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        userImg.src = event.target.result;
+      };
+      reader.readAsDataURL(file);
+    });
+
+    userImg.onload = () => drawCanvas();
+    frame.onload = () => drawCanvas();
+
+    function drawCanvas() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      if (userImg.src) {
+        // Vẽ ảnh user full canvas (bạn có thể chỉnh lại tỉ lệ nếu muốn zoom/crop)
+        ctx.drawImage(userImg, 0, 0, canvas.width, canvas.height);
+      }
+      if (frame.src) {
+        ctx.drawImage(frame, 0, 0, canvas.width, canvas.height);
+      }
+    }
+
+    download.addEventListener('click', () => {
+      const link = document.createElement('a');
+      link.download = "avatar.png";
+      link.href = canvas.toDataURL("image/png");
+      link.click();
+    });
+  </script>
+</body>
+</html>
