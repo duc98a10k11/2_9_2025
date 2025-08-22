@@ -15,7 +15,10 @@
       max-width: 100%; 
       border: 2px solid #ddd; 
       margin-top: 20px; 
+      cursor: grab;
+      touch-action: none; /* cần để hỗ trợ pinch/zoom */
     }
+    canvas:active { cursor: grabbing; }
     .btn { 
       padding: 10px 20px; 
       border: none; 
@@ -30,7 +33,7 @@
   </style>
 </head>
 <body>
-  <h2>📸 Tạo Avatar với Khung</h2>
+  <h2>📸 Tạo Avatar với Khung </h2>
   <input type="file" id="upload" accept="image/*" class="btn">
   <button class="btn" id="download">Tải Avatar</button>
   <br>
@@ -43,10 +46,15 @@
     const ctx = canvas.getContext('2d');
 
     const frame = new Image();
-    frame.src = "frame.png"; // <-- đặt file khung PNG cùng thư mục
+    frame.src = "frame.png"; // file khung PNG trong suốt
 
     let userImg = new Image();
+    let userX = 0, userY = 0;   // vị trí ảnh
+    let userScale = 1;          // tỷ lệ zoom
+    let dragging = false;
+    let offsetX, offsetY;
 
+    // --- Upload ảnh ---
     upload.addEventListener('change', (e) => {
       const file = e.target.files[0];
       if (!file) return;
@@ -57,20 +65,116 @@
       reader.readAsDataURL(file);
     });
 
-    userImg.onload = () => drawCanvas();
+    userImg.onload = () => {
+      userScale = Math.min(
+        canvas.width / userImg.width,
+        canvas.height / userImg.height
+      ); // fit vừa khung
+      userX = (canvas.width - userImg.width * userScale) / 2;
+      userY = (canvas.height - userImg.height * userScale) / 2;
+      drawCanvas();
+    };
     frame.onload = () => drawCanvas();
 
     function drawCanvas() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       if (userImg.src) {
-        // Vẽ ảnh user full canvas (bạn có thể chỉnh lại tỉ lệ nếu muốn zoom/crop)
-        ctx.drawImage(userImg, 0, 0, canvas.width, canvas.height);
+        ctx.drawImage(
+          userImg,
+          userX, userY,
+          userImg.width * userScale,
+          userImg.height * userScale
+        );
       }
       if (frame.src) {
         ctx.drawImage(frame, 0, 0, canvas.width, canvas.height);
       }
     }
 
+    // --- PC: Drag để di chuyển ---
+    canvas.addEventListener("mousedown", (e) => {
+      dragging = true;
+      offsetX = e.offsetX - userX;
+      offsetY = e.offsetY - userY;
+    });
+
+    canvas.addEventListener("mousemove", (e) => {
+      if (dragging) {
+        userX = e.offsetX - offsetX;
+        userY = e.offsetY - offsetY;
+        drawCanvas();
+      }
+    });
+
+    canvas.addEventListener("mouseup", () => dragging = false);
+    canvas.addEventListener("mouseleave", () => dragging = false);
+
+    // --- PC: Zoom bằng con lăn ---
+    canvas.addEventListener("wheel", (e) => {
+      e.preventDefault();
+      zoomCanvas(e.offsetX, e.offsetY, e.deltaY < 0 ? 1.05 : 0.95);
+    });
+
+    // --- Mobile: Drag & Pinch ---
+    let lastTouchDist = null;
+
+    function getTouchDist(touches) {
+      const dx = touches[0].clientX - touches[1].clientX;
+      const dy = touches[0].clientY - touches[1].clientY;
+      return Math.sqrt(dx*dx + dy*dy);
+    }
+
+    canvas.addEventListener("touchstart", (e) => {
+      if (e.touches.length === 1) {
+        dragging = true;
+        offsetX = e.touches[0].clientX - userX;
+        offsetY = e.touches[0].clientY - userY;
+      } else if (e.touches.length === 2) {
+        lastTouchDist = getTouchDist(e.touches);
+      }
+    });
+
+    canvas.addEventListener("touchmove", (e) => {
+      e.preventDefault();
+      if (dragging && e.touches.length === 1) {
+        userX = e.touches[0].clientX - offsetX;
+        userY = e.touches[0].clientY - offsetY;
+        drawCanvas();
+      } else if (e.touches.length === 2) {
+        const dist = getTouchDist(e.touches);
+        if (lastTouchDist) {
+          const scaleAmount = dist > lastTouchDist ? 1.05 : 0.95;
+          // zoom vào giữa 2 ngón
+          const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2 - canvas.getBoundingClientRect().left;
+          const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2 - canvas.getBoundingClientRect().top;
+          zoomCanvas(midX, midY, scaleAmount);
+        }
+        lastTouchDist = dist;
+      }
+    });
+
+    canvas.addEventListener("touchend", (e) => {
+      dragging = false;
+      if (e.touches.length < 2) lastTouchDist = null;
+    });
+
+    // --- Zoom chung ---
+    function zoomCanvas(centerX, centerY, scaleAmount) {
+      const prevWidth = userImg.width * userScale;
+      const prevHeight = userImg.height * userScale;
+
+      userScale *= scaleAmount;
+
+      const newWidth = userImg.width * userScale;
+      const newHeight = userImg.height * userScale;
+
+      userX -= (centerX - userX) * (newWidth / prevWidth - 1);
+      userY -= (centerY - userY) * (newHeight / prevHeight - 1);
+
+      drawCanvas();
+    }
+
+    // --- Tải ảnh ---
     download.addEventListener('click', () => {
       const link = document.createElement('a');
       link.download = "avatar.png";
